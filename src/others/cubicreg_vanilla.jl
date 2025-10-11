@@ -274,7 +274,7 @@ function iterate_cholesky_nesterov(
         )
     end
 
-    Lₖ = 2 * Mₕ
+    Lₖ = 0.1Mₕ
     v, θ, λ₁, kᵢ = iter.trs(
         H,
         state.∇f,
@@ -300,7 +300,6 @@ function iterate_cholesky_nesterov(
         kᵢ: $kᵢ, df: $df, 
         ρₐ: $ρₐ
     """
-
     # do this when accept
     state.x = x
     state.y = y

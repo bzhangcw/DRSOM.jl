@@ -31,6 +31,7 @@ include("algorithms/hsodm.jl")
 include("algorithms/pfh.jl")
 include("algorithms/utr.jl")
 include("algorithms/atr.jl")
+include("algorithms/atrms.jl")
 
 # my implementation of other algorithms
 include("others/cubicreg_vanilla.jl")
@@ -47,6 +48,7 @@ PFH = PathFollowingHSODM
 FBEDRSOM = ForwardBackwardDimensionReducedSecondOrderMethod
 UTR = UniversalTrustRegion
 ATR = AcceleratedUniversalTrustRegion
+ATRMS = AcceleratedUniversalTrustRegionMonteiroSvaiter
 function __init__()
     # Logger.initialize()
 end
@@ -55,7 +57,7 @@ export Result
 export DRSOM2, DRSOMEx
 export FBEDRSOM
 export HSODM, PFH
-export UTR, ATR
+export UTR, ATR, ATRMS
 
 # other algorithms
 export CubicRegularizationVanilla
