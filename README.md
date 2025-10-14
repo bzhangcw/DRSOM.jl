@@ -22,8 +22,11 @@ DRSOM.jl is a Julia implementation of a few second-order optimization methods fo
 You are welcome to cite our papers : )
 ```
 1.  Jiang, Y., He, C., Zhang, C., Ge, D., Jiang, B., Ye, Y.: Beyond nonconvexity: a universal trust-region method with new analyses, http://arxiv.org/abs/2311.11489, (2023)
+
 2.  He, C., Jiang, Y., Zhang, C., Ge, D., Jiang, B., Ye, Y.: Homogeneous second-order descent framework: a fast alternative to Newton-type methods. Math. Program. (2025). https://doi.org/10.1007/s10107-025-02230-3
+
 3.  Zhang, C., He, C., Jiang, Y., Xue, C., Jiang, B., Ge, D., Ye, Y.: A homogeneous second-order descent method for nonconvex optimization. Mathematics of OR. (2025). https://doi.org/10.1287/moor.2023.0132
+
 4.  Zhang, C., Ge, D., He, C., Jiang, B., Jiang, Y., Ye, Y.: DRSOM: a dimension reduced second-order method, http://arxiv.org/abs/2208.00208, (2022)
 ```
 

@@ -183,6 +183,7 @@ end
 add_drsom = true
 add_hsodm = true
 add_utr = true
+add_hacubic = true
 if add_drsom
     alg_drsom = DRSOM2()
     wrapper_drsom(x, loss, g, H, options; kwargs...) =
@@ -276,6 +277,18 @@ if add_utr
             options...
         )
 end
+if add_hacubic
+    alg_hacubic = HaCubic()
+    wrapper_hacubic(x, loss, g, H, options; kwargs...) =
+        alg_hacubic(;
+            x0=copy(x), f=loss, g=g, H=H,
+            A₀=1e-1,
+            α=1.1,
+            memory=10,
+            memory_type=:i,
+            options...
+        )
+end
 
 
 # My solvers and those in Optim.jl
@@ -289,6 +302,7 @@ MY_OPTIMIZERS = Dict(
     :UTR => wrapper_utr,
     :iUTR => wrapper_iutr,
     :iUTRhvp => wrapper_iutr_hvp,
+    :HaCubic => wrapper_hacubic,
 )
 
 OPTIMIZERS_OPTIM = Dict(
