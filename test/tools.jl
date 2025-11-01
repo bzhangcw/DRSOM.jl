@@ -77,7 +77,11 @@ function arc_stop_to_result(nlp, rr, name)
     traj = []
     for i in 1:rr.listofstates.i
         x = rr.listofstates[i]
-        st = StateOptim(fx=x[1].fx, ϵ=x[1].gx |> norm, t=x[1].current_time - ts)
+        st = StateOptim(
+            fx=x[1].fx,
+            ϵ=x[1].gx |> norm,
+            t=x[1].current_time - ts,
+        )
         push!(traj, st)
     end
     traj[end].kf = neval_obj(nlp)
@@ -142,7 +146,7 @@ if add_optim
         )
 end
 if add_adaptive_reg_jl
-    function wrapper_arc(nlp)
+    function wrapper_arc_hvp(nlp)
         reset!(nlp)
         stats, _ = ARCqKOp(
             nlp,
@@ -153,6 +157,19 @@ if add_adaptive_reg_jl
             # atol=atol,
             # rtol=rtol,
             # @note: how to set |g|?
+        )
+        # AdaptiveRegularization.jl to my style of results
+        return arc_to_result(nlp, stats, "ARC")
+    end
+
+    function wrapper_arc_hess(nlp)
+        reset!(nlp)
+        stats, _ = ARCqKsparse(
+            nlp,
+            max_time=max_time,
+            max_iter=max_iter,
+            max_eval=typemax(Int64),
+            verbose=true
         )
         # AdaptiveRegularization.jl to my style of results
         return arc_to_result(nlp, stats, "ARC")
@@ -278,14 +295,24 @@ if add_utr
         )
 end
 if add_hacubic
-    alg_hacubic = HaCubic()
-    wrapper_hacubic(x, loss, g, H, options; kwargs...) =
-        alg_hacubic(;
+    alg_hacubic_i = HaCubic()
+    wrapper_hacubic_i(x, loss, g, H, options; kwargs...) =
+        alg_hacubic_i(;
             x0=copy(x), f=loss, g=g, H=H,
-            A₀=1e-1,
-            α=1.1,
+            A₀=1e-10,
+            α=2.0,
             memory=10,
             memory_type=:i,
+            options...
+        )
+    alg_hacubic_ii = HaCubic()
+    wrapper_hacubic_ii(x, loss, g, H, options; kwargs...) =
+        alg_hacubic_ii(;
+            x0=copy(x), f=loss, g=g, H=H,
+            A₀=1e-12,
+            α=1.5,
+            memory=3,
+            memory_type=:ii,
             options...
         )
 end
@@ -302,7 +329,8 @@ MY_OPTIMIZERS = Dict(
     :UTR => wrapper_utr,
     :iUTR => wrapper_iutr,
     :iUTRhvp => wrapper_iutr_hvp,
-    :HaCubic => wrapper_hacubic,
+    :HaCubicI => wrapper_hacubic_i,
+    :HaCubicII => wrapper_hacubic_ii,
 )
 
 OPTIMIZERS_OPTIM = Dict(
@@ -314,6 +342,7 @@ OPTIMIZERS_OPTIM = Dict(
 
 # solvers in AdaptiveRegularization.jl 
 OPTIMIZERS_NLP = Dict(
-    :ARC => wrapper_arc, # adaptive cubic regularization
+    :ARC => wrapper_arc_hvp, # adaptive cubic regularization (using HVP evaluation)
+    :ARCH => wrapper_arc_hess, # adaptive cubic regularization (using Hessian evaluation)
     :TRST => wrapper_tr_st # trust-region with Steihaug–Toint CG
 )

@@ -35,7 +35,10 @@ filter_cutest_problem(nlp) = (4 <= nlp.meta.nvar <= 200)
 # filter_optimization_method(k) = k == :HSODM
 # filter_optimization_method(k) = k == :HSODMhvp
 # filter_optimization_method(k) = k ∈ [:HaCubic, :UTR]
-filter_optimization_method(k) = k == :HaCubic
+# filter_optimization_method(k) = k ∈ [:HaCubicI, :HaCubicII, :ARC]
+filter_optimization_method(k) = k ∈ [:HaCubicII]
+# filter_optimization_method(k) = k ∈ [:ARCH]
+# filter_optimization_method(k) = k == :HaCubic
 # filter_optimization_method(k) = k ∈ [:HSODMhvp, :ARC, :TRST]
 # filter_optimization_method(k) = k ∈ [:iUTRhvp]
 # filter_optimization_method(k) = k == :ARC
