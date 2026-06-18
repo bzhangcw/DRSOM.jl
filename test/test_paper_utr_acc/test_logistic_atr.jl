@@ -27,7 +27,6 @@ using Random
 using Plots
 using Printf
 using KrylovKit
-using ADNLPModels
 using LaTeXStrings
 using LinearAlgebra
 using Statistics
@@ -49,10 +48,10 @@ end
 ε = 1e-9 # * max(g(x0) |> norm, 1)
 λ = 1.0e-4
 K = 1500
-tol = 1e-10
+tol = 1e-9
 if bool_q_preprocessed
-    # name = "a4a"
-    name = "a9a"
+    name = "a4a"
+    # name = "a9a"
     # name = "w4a"
     # name = "w8a"
     # name = "covtype"
@@ -82,27 +81,32 @@ if bool_q_preprocessed
     Random.seed!(1)
     N = y |> length
 
-    x₀ = 20 * randn(Float64, n)
+    x₀ = 1e1 * randn(Float64, n)
 
+    # All oracles are written in terms of the margin m = y .* (Xv*w) so that the
+    # exponentials saturate cleanly (→ 0 or → Inf) instead of giving Inf/Inf = NaN
+    # when w (hence m) is large. See the σ(m), σ(m)(1-σ(m)) identities below.
     function loss(w)
-        z = log.(1 .+ exp.(-y .* (Xv * w))) |> sum
+        m = y .* (Xv * w)
+        # log(1 + exp(-m)) via stable softplus: max(-m,0) + log1p(exp(-|m|))
+        z = sum(@. max(-m, 0) + log1p(exp(-abs(m))))
         return z / N + 0.5 * λ * w'w
     end
     function g(w)
-        z = exp.(-y .* (Xv * w))
-        fq = -z ./ (1 .+ z)
+        m = y .* (Xv * w)
+        fq = @. -1 / (1 + exp(m))          # = σ(m) - 1, stable (overflow → 0)
         return Xv' * (fq .* y) / N + λ * w
     end
 
     function H(w)
-        z = exp.(y .* (Xv * w))
-        fq = z ./ (1 .+ z) .^ 2
+        m = y .* (Xv * w)
+        fq = @. 1 / (exp(m) + 2 + exp(-m)) # = σ(m)(1-σ(m)), stable
         return ((fq .* Pv)' * Xv ./ N) + λ * I
     end
 
     function hvp(w, v, Hv)
-        z = exp.(y .* (Xv * w))
-        fq = z ./ (1 .+ z) .^ 2
+        m = y .* (Xv * w)
+        fq = @. 1 / (exp(m) + 2 + exp(-m)) # = σ(m)(1-σ(m)), stable
         copyto!(Hv, (fq .* Pv)' * (Xv * v) ./ N .+ λ .* v)
     end
 
@@ -122,7 +126,6 @@ if bool_q_preprocessed
         show_every=1,
         time_limit=500
     )
-    nlp = ADNLPModel(x -> loss(x), copy(x₀))
 end
 
 
@@ -139,32 +142,32 @@ if bool_opt
         time_limit=500
     )
     _Mconst = Lip2(Xv, N)
-    Mₕ(x) = _Mconst / 50
+    Mₕ(x) = _Mconst / 5
 
-    rd = ATR(name=Symbol("UTR"))(;
-        x0=copy(x₀), f=loss, g=g, H=H,
-        maxiter=K, tol=tol / 2, freq=20,
-        bool_trace=true,
-        subpstrategy=:direct,
-        initializerule=:given,
-        Mₕ=Mₕ,
-        adaptiverule=:constant,
-        ratio_σ=2.0,
-        ratio_Δ=15.0,
-    )
-    push!(results, ("UTR (1)", rd))
-    rd = ATR(name=Symbol("UTR"))(;
-        x0=copy(x₀), f=loss, g=g, H=H,
-        maxiter=K, tol=tol / 2, freq=20,
-        bool_trace=true,
-        subpstrategy=:direct,
-        initializerule=:given,
-        Mₕ=Mₕ,
-        adaptiverule=:constant,
-        ratio_σ=5.0,
-        ratio_Δ=15.0,
-    )
-    push!(results, ("UTR (2)", rd))
+    # rd = ATR(name=Symbol("UTR"))(;
+    #     x0=copy(x₀), f=loss, g=g, H=H,
+    #     maxiter=K, tol=tol / 2, freq=20,
+    #     bool_trace=true,
+    #     subpstrategy=:direct,
+    #     initializerule=:given,
+    #     Mₕ=Mₕ,
+    #     adaptiverule=:constant,
+    #     ratio_σ=2.0,
+    #     ratio_Δ=15.0,
+    # )
+    # push!(results, ("UTR (1)", rd))
+    # rd = ATR(name=Symbol("UTR"))(;
+    #     x0=copy(x₀), f=loss, g=g, H=H,
+    #     maxiter=K, tol=tol / 2, freq=20,
+    #     bool_trace=true,
+    #     subpstrategy=:direct,
+    #     initializerule=:given,
+    #     Mₕ=Mₕ,
+    #     adaptiverule=:constant,
+    #     ratio_σ=5.0,
+    #     ratio_Δ=15.0,
+    # )
+    # push!(results, ("UTR (2)", rd))
 
     rd = ATR(name=Symbol("ATR"))(;
         x0=copy(x₀), f=loss, g=g, H=H,
@@ -180,39 +183,80 @@ if bool_opt
     )
     push!(results, ("ATR", rd))
 
-    rd = ATRMS(name=Symbol("ATRMS"))(;
+    rd = ATR(name=Symbol("ATR (larger M)"))(;
         x0=copy(x₀), f=loss, g=g, H=H,
-        maxiter=K, tol=tol / 2, freq=1,
-        bool_trace=true,
-        initializerule=:given,
-        Mₕ=(x) -> Mₕ(x) / 40,
-        adaptiverule=:constant,
-        localthres=1e-5
-    )
-    push!(results, ("ATR (MS)", rd))
-
-    rd = CubicRegularizationVanilla(name=Symbol("Cubic"))(;
-        x0=copy(x₀), f=loss, g=g, H=H,
-        maxiter=K, tol=tol, freq=20,
-        bool_trace=true,
-        subpstrategy=:direct,
-        initializerule=:given,
-        Mₕ=Mₕ
-    )
-    push!(results, ("CubicReg", rd))
-
-
-    rd = CubicRegularizationVanilla(name=Symbol("Cubic"))(;
-        x0=copy(x₀), f=loss, g=g, H=H,
-        maxiter=K, tol=tol, freq=20,
+        maxiter=K, tol=tol / 2, freq=20,
         bool_trace=true,
         subpstrategy=:nesterov,
         initializerule=:given,
-        Mₕ=Mₕ
+        Mₕ=(x) -> Mₕ(x) * 40,
+        adaptiverule=:utr,
+        ratio_σ=10.0,
+        ratio_Δ=0.5,
+        localthres=1e-5
     )
-    push!(results, ("CubicReg-Acc", rd))
+    push!(results, ("ATR (larger M)", rd))
+
+    # rd = ATRMS(name=Symbol("ATRMS"))(;
+    #     x0=copy(x₀), f=loss, g=g, H=H,
+    #     maxiter=K, tol=tol / 2, freq=1,
+    #     bool_trace=true,
+    #     initializerule=:given,
+    #     Mₕ=(x) -> Mₕ(x) / 10,
+    #     adaptiverule=:constant,
+    #     localthres=1e-5
+    # )
+    # push!(results, ("ATR (MS)", rd))
+
+    # the usual (large-step A-NPE) Monteiro–Svaiter accelerated method
+    rd = MS(name=Symbol("MS"))(;
+        x0=copy(x₀), f=loss, g=g, H=H,
+        maxiter=K, tol=tol / 2, freq=10,
+        bool_trace=true,
+        Mₕ=(x) -> Mₕ(x),
+        σl=0.2,
+        σu=0.8,
+    )
+    push!(results, ("MS", rd))
+    rd = MS(name=Symbol("MS (larger M)"))(;
+        x0=copy(x₀), f=loss, g=g, H=H,
+        maxiter=K, tol=tol / 2, freq=10,
+        bool_trace=true,
+        Mₕ=(x) -> Mₕ(x) * 40,
+        σl=0.2,
+        σu=0.8,
+    )
+    push!(results, ("MS (larger M)", rd))
+    # rd = MS(name=Symbol("MS (smaller M)"))(;
+    #     x0=copy(x₀), f=loss, g=g, H=H,
+    #     maxiter=K, tol=tol / 2, freq=10,
+    #     bool_trace=true,
+    #     Mₕ=(x) -> Mₕ(x) / 10,
+    #     σl=0.2,
+    #     σu=0.8,
+    # )
+    # push!(results, ("MS (smaller M)", rd))
+
+    # rd = CubicRegularizationVanilla(name=Symbol("Cubic"))(;
+    #     x0=copy(x₀), f=loss, g=g, H=H,
+    #     maxiter=K, tol=tol, freq=20,
+    #     bool_trace=true,
+    #     subpstrategy=:direct,
+    #     initializerule=:given,
+    #     Mₕ=Mₕ
+    # )
+    # push!(results, ("CubicReg", rd))
 
 
+    # rd = CubicRegularizationVanilla(name=Symbol("Cubic"))(;
+    #     x0=copy(x₀), f=loss, g=g, H=H,
+    #     maxiter=K, tol=tol, freq=20,
+    #     bool_trace=true,
+    #     subpstrategy=:nesterov,
+    #     initializerule=:given,
+    #     Mₕ=Mₕ
+    # )
+    # push!(results, ("CubicReg-Acc", rd))
 
 end
 
@@ -250,7 +294,7 @@ if bool_plot
     )
     maxstep = K
     colors = palette(:Paired_8)[[1, 2, 3, 4, 5, 6, 7]]
-    markers = [:rect, :rect, :rect, :rect, :circle, :circle]
+    markers = [:rect, :rect, :rect, :rect, :circle, :circle, :diamond]
     for (k, (nm, rv)) in enumerate(results)
         yv = getresultfield(rv, metric)
         xv = getresultfield(rv, :kH)
@@ -272,8 +316,8 @@ if bool_plot
             # markercolor=:match,
         )
         scatter!(fig,
-            xv[end:-30:1],
-            yv[end:-30:1],
+            xv[end:-10:1],
+            yv[end:-10:1],
             markershape=markers[k],
             markersize=4.0,
             markercolor=colors[k],

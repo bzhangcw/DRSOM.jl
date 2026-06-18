@@ -32,6 +32,7 @@ include("algorithms/pfh.jl")
 include("algorithms/utr.jl")
 include("algorithms/atr.jl")
 include("algorithms/atrms.jl")
+include("algorithms/ms.jl")
 include("algorithms/hacubic.jl")
 
 # my implementation of other algorithms
@@ -50,6 +51,7 @@ FBEDRSOM = ForwardBackwardDimensionReducedSecondOrderMethod
 UTR = UniversalTrustRegion
 ATR = AcceleratedUniversalTrustRegion
 ATRMS = AcceleratedUniversalTrustRegionMonteiroSvaiter
+MS = AcceleratedMonteiroSvaiter
 HaCubic = HistoryAwareCubicRegularization
 function __init__()
     # Logger.initialize()
@@ -60,6 +62,7 @@ export DRSOM2, DRSOMEx
 export FBEDRSOM
 export HSODM, PFH
 export UTR, ATR, ATRMS
+export MS
 export HaCubic
 
 # other algorithms
